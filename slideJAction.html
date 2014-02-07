@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="Content-Script-Type" content="text/javascript" />
+<title>카카오페이지 실험실</title>
+<style>
+*{margin:0;padding:0}
+body{overflow-x:hidden}
+.list{position:relative;padding:15px;margin-bottom:20px;overflow:hidden}
+.viewer{position:relative;top:0;left:0;z-index:50}
+.viewer .slide{float:left;margin-right:10px}
+.slide img{width:100%}
+.touchBoard{position:absolute;top:15px;left:15px;z-index:100;opacity:0.4}
+.blind{position:absolute;top:-9999em;left:-9999em}
+</style>
+
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+
+</head>
+
+<body>
+	
+	
+	<div class="listWrp blind">
+	
+		<div class="list">
+			<div class="touchBoard"></div>
+			<div class="viewer">
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+			</div>
+		</div>
+		
+		<div class="list">
+			<div class="touchBoard"></div>
+			<div class="viewer">
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+			</div>
+		</div>
+		
+		<div class="list">
+			<div class="touchBoard"></div>
+			<div class="viewer">
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+			</div>
+		</div>
+		
+		<div class="list">
+			<div class="touchBoard"></div>
+			<div class="viewer">
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+				<div class="slide"><img src="img_realtime_ranking.jpg" alt="" /></div>
+			</div>
+		</div>
+		
+	</div>
+	
+	<script>
+	/**
+	* 다른 패턴으로도 변경해볼 것! 코드가 좀더 직관적이고 심플할 수는 없을까? 메모리 관리도 생각하자.
+	* version : v1.4
+	* 4+ 모바일에서도 동일한 효과를 적용한다.(앵글과 터치 이벤트)
+	*/
+	(function(window, undefined) {
+		var 
+		j = $,
+		list = j(".list"),
+		listSize = j(".list").length,
+		viewer = list.find(".viewer"),
+		slide = viewer.find(".slide"),
+		slideGap = 10, // 슬라이드간 간격
+		framePadding = 15, // 프레임 테두리
+		touchBoard = viewer.prev(), // 터치보드
+		slideSize = [], // 각 슬라이드 개수
+		posArr = []; // 각 객체의 슬라이드 인덱스
+		indexedNumber = 0, // 리스트 순서
+		currentSlideNumber = 0, // 현재슬라이드 숫자
+		cachedX = 0, // var cachedY,
+		newX = 0, newY = 0;
+			
+		// @ collect each slide length
+		for (var i= 0;i<listSize;i++)
+			slideSize.push(list.eq(i).find(".slide").length);
+	
+		for(var i=0;i<listSize;i++)
+			posArr.push(0);
+	
+	
+		/** 
+		*  slideJAction
+		* @ constructor
+		* @ RETURN method(move, reArrange, update, calculate)
+		*/
+		function slideJAction() {
+			var 
+			deviceWidth = j(window).width(), // 디바이스 넓이.
+			tb_width =  deviceWidth-2*framePadding, // 터치보드 넓이.
+			slideHeight = slide.eq(0).height();
+			slide.css("width", tb_width);
+			viewer.css("width", ( slide.width() + slideGap)*Math.max.apply(Math, slideSize));
+			touchBoard.css({
+				"width": deviceWidth-2*framePadding,
+				"height" : slideHeight
+			});	
+			
+			return {
+				/** 
+				* @method
+				* move selected slide' viewer by indexed number
+				*/
+				move : function (targetIndex, index) {
+					viewer.eq(targetIndex).stop().animate({"left" :  this.calculate(index) }, 200); // duration 200
+//					viewer.eq(targetIndex).css("left", this.calculate(index));
+					this.update(targetIndex, index);
+				},
+				
+				/** 
+				* @method : moveAll
+				* reset whole list when resize event ocurred.
+				*/
+				reArrange : function () {
+					for(var i=0;i<listSize;i++) this.move(i,posArr[i]);
+				},
+				
+				/**
+				* @method
+				* update viewer's slide number displayed
+				*/
+				update : function(targetIndex, index) { 
+					posArr[targetIndex] = index;
+				},
+				
+				/**
+				* @method
+				* calculate distance changable number
+				* @RETURN {number}
+				*/
+				calculate : function (idx) {
+					return parseInt( (-1)*idx*(tb_width+slideGap) );
+				},
+
+				// @ TESTing - view data.
+				test : function () {
+					console.log("data : " + deviceWidth +" / " +  tb_width + " / " + posArr + " / " + slideSize);
+				}
+			};
+		}
+		
+		window.onload = function () {
+			var sa = slideJAction();
+			sa.test();
+			
+			
+			$(".listWrp").removeClass("blind");
+		};	
+		
+		window.onresize = function () {
+			var sa = slideJAction();
+			sa.reArrange();
+			
+			sa.test();
+		};
+		
+		var traceStart = false;
+		
+		touchBoard.mousedown(function (e) {
+			e.preventDefault();
+			traceStart = true; // 마우스 트레이싱 시작.
+			
+			console.log("mouse down start!");
+			cachedX = parseInt(e.pageX-15);
+			// cachedY = parseInt(e.pageY-15);
+			// console.log("cachedX : " + cachedX + " / cachedY : " +  cachedY);
+		});
+
+		touchBoard.mousemove(function (e) {
+			e.preventDefault();
+			
+			if(traceStart) {
+				console.log("mouse moving..." + parseInt(e.pageX-15));
+				console.log("recent viewer position : " + $(this).next(".viewer").css("left"));
+				newX = e.pageX-15;
+				newY = e.pageY-15;
+				var currentViewPosition = $(this).next(".viewer").css("left");
+
+				console.log("추가 이동 거리 : " + parseInt(moveAvailable()) );
+				console.log("갱신 최종  위치 : " + parseInt( parseInt(currentViewPosition) + parseInt(moveAvailable()) ) );
+				
+				$(this).next(".viewer").css( "left", parseInt( parseInt(currentViewPosition) + parseInt(moveAvailable()/30) ) ); // 변수 50
+			}
+		});
+		
+		touchBoard.bind("mouseup", function (e) {
+			e.preventDefault();
+			console.log("mouse release!!");
+			traceStart = false; // 마우스 트레이싱 정지
+			
+			newX = e.pageX-15;
+			newY = e.pageY-15;
+			
+			console.log("newX : " + newX + " / newY : " + newY);
+			
+			var dis = moveAvailable();
+			if(typeof dis !== "undefined") console.log("이동거리 : " + dis);
+
+			indexedNumber = j(this).parent().index(); 
+			currentSlideNumber = posArr[indexedNumber];
+			
+			var sa = slideJAction();
+			var nextMove; // 다음 슬라이드 번호
+			
+			 if(typeof dis == "undefined") return false; 
+			
+			if(dis > movableWidth ) {
+				nextMove = 	currentSlideNumber-1;
+				if(nextMove < 0) nextMove = 0;
+			} else {
+				nextMove = 	currentSlideNumber+1;
+				var maxSize = slideSize[indexedNumber] - 1;
+				if(nextMove > maxSize) nextMove = maxSize;	
+				// console.log("maxSize : " + maxSize + "/ nextMove : " + nextMove);
+			}
+			
+			// @ move !!
+			sa.move(indexedNumber, nextMove);
+
+		});
+		
+		/**
+		* @ when mouse pointer escapes from window or device.
+		*/
+		touchBoard.bind("mouseleave", function (e) {
+			e.preventDefault();
+			traceStart = false;
+			var sa = slideJAction();
+			var _thisIndex = $(this).parent().index();
+			sa.move(_thisIndex, posArr[_thisIndex]);
+		});
+		
+		
+		var movableWidth = 30; // 적정한 수치를 찾는다.
+		function moveAvailable() {
+			var distanceX = Math.abs(newX - cachedX);
+			// console.log("mouse check : " + distanceX);
+			if(distanceX > movableWidth) return newX - cachedX;	
+		}
+		
+		window.slideJAction = window.slideJAction || slideJAction;
+		// window.touchBoard = touchBoard; // test
+		
+		
+		
+	}(window));	
+	
+	</script>
+	
+</body>
+</html>
